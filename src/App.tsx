@@ -1,64 +1,107 @@
-import React, { useCallback, useEffect } from 'react';
-
+import React, { useRef, useCallback } from 'react';
 import {
   ReactFlow,
-  MiniMap,
-  Controls,
-  Background,
+  ReactFlowProvider,
+  addEdge,
   useNodesState,
   useEdgesState,
-  addEdge,
-} from 'reactflow';
-import '@reactflow/core/dist/style.css';
+  Controls,
+  useReactFlow,
+  Background,
+} from '@xyflow/react';
+
+import '@xyflow/react/dist/style.css';
+
+
+import Sidebar from './components/Sidebar';
+import { DnDProvider, useDnD } from './components/DnDContext';
 
 const initialNodes = [
-  { id: '1', position: { x: 0, y: 0 }, data: { label: '1', icon: 'https://alo-project-front.s3.us-east-1.amazonaws.com/init.png' },  sourcePosition: 'right', targetPosition: 'left', connectable: true },
-  { id: '2', position: { x: 0, y: 100 }, data: { label: '2', icon: 'https://example.com/icon2.png' },  sourcePosition: 'right', targetPosition: 'left', connectable: true },
-  { id: '3', position: { x: 0, y: 150 }, data: { label: '3', icon: 'https://alo-project-front.s3.us-east-1.amazonaws.com/end.png' },  sourcePosition: 'right', targetPosition: 'left', connectable: true },
+  {
+    id: '1',
+    type: 'input',
+    data: { label: 'input node' },
+    position: { x: 250, y: 5 },
+  },
 ];
 
-const initialEdges = [{ id: 'e1-2', source: '1', target: '2' }];
+let id = 0;
+const getId = () => `dndnode_${id++}`;
 
-export default function App() {
+const DnDFlow = () => {
+  const reactFlowWrapper = useRef(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const { screenToFlowPosition } = useReactFlow();
+  const [type] = useDnD();
 
   const onConnect = useCallback(
-    (connection) => {
-      setEdges((eds) => addEdge({ ...connection, id: `${connection.source}-${connection.target}` }, eds));
-    },
-    [setEdges]
+    (params) => setEdges((eds) => addEdge(params, eds)),
+    [],
   );
 
-  useEffect(() => {
-    //lógica para crear conexiones automáticas
-    const newEdges = [];
-    nodes.forEach((node) => {
-      if (node.data.label % 2 === 0) { // Conectar nodos pares
-        newEdges.push({
-          id: `${node.id}-next`,
-          source: node.id,
-          target: String(parseInt(node.id) + 1)
-        });
+  const onDragOver = useCallback((event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (event) => {
+      event.preventDefault();
+
+      // check if the dropped element is valid
+      if (!type) {
+        return;
       }
-    });
-    setEdges((eds) => [...newEdges, ...eds]);
-  }, [nodes]); // Asegúrate de que el efecto se ejecute cuando cambian los nodos
+
+      // project was renamed to screenToFlowPosition
+      // and you don't need to subtract the reactFlowBounds.left/top anymore
+      // details: https://reactflow.dev/whats-new/2023-11-10
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      const newNode = {
+        id: getId(),
+        type,
+        position,
+        data: { label: `${type} node` },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [screenToFlowPosition, type],
+  );
 
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView // Para ajustar la vista automáticamente
-      >
-        <Controls />
-        <MiniMap />
-        <Background variant="dots" gap={12} size={1} />
-      </ReactFlow>
+    <div style={{ width: '100vw', height: '100vh' }} tabIndex={0} >
+      <div className="dndflow">
+        <div className="reactflow-wrapper" ref={reactFlowWrapper}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            fitView
+            style={{ backgroundColor: "#F7F9FB" }}
+          >
+            <Controls />
+            <Background />
+          </ReactFlow>
+        </div>
+        <Sidebar />
+      </div>
     </div>
   );
-}
+};
+
+export default () => (
+  <ReactFlowProvider>
+    <DnDProvider>
+      <DnDFlow />
+    </DnDProvider>
+  </ReactFlowProvider>
+);
