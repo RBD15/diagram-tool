@@ -22,6 +22,9 @@ export default () => {
       <div className="dndnode output" onDragStart={(event) => onDragStart(event, 'result')} draggable>
         Print Node
       </div>
+      <div className="dndnode output" onDragStart={(event) => onDragStart(event, 'condition')} draggable>
+        Condition Node
+      </div>
       <div className="dndnode end" onDragStart={(event) => onDragStart(event, 'end')} draggable>
         End Node
       </div>

@@ -24,13 +24,15 @@ import { type MyNode } from './nodes/initialElements';
 import VariableNode from './nodes/VariableNode';
 import InitNode from './nodes/InitNode';
 import EndNode from './nodes/EndNode';
+import ConditionNode from './nodes/ConditionNode';
 
 const nodeTypes = {
   variable: VariableNode,
   result: PrintNode,
   uppercase: UppercaseNode,
   init: InitNode,
-  end: EndNode
+  end: EndNode,
+  condition: ConditionNode
 };
 
 const initialNodes: MyNode[] = []
@@ -107,13 +109,6 @@ const initEdges: Edge[] = []
 //   },
 // ];
 
-const generateArtifact = () => {
-  let artifacts = {
-    nodes: initialNodes,
-    edges: initEdges
-  }
-  console.log({artifacts});
-}
 
 //TODO: Global context for variables variables{nombre:value} call in result
 //  node like 'Bienvenido {nombre}' donde {} marca la variable y se imprime
@@ -121,6 +116,7 @@ const generateArtifact = () => {
 
 let id = 1;
 const getId = () => `${id++}`;
+
 
 const Flow = () => {
   const edgeReconnectSuccessful = useRef(true);
@@ -130,16 +126,60 @@ const Flow = () => {
   const { screenToFlowPosition } = useReactFlow();
   const [type] = useDnD();
   
-  const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [],
-  );
+  // const onConnect = useCallback(
+  //   (params) => {
+  //     // console.log("Nodes",nodes);
+  //     console.log("Edge parms",params);
+  //     const sourceNode = nodes.find((node) => node.id === params.source);
+  //     console.log("SoureNode",sourceNode);
+
+  //     setEdges((eds) => {
+  //       const newEdges = addEdge(params, eds)
+
+  //       const index = newEdges.length -1
+  //       newEdges[index].label = "IF"
+  //       newEdges[index].type = "IF"
+  //       console.log("Connection",newEdges);
+        
+  //       return newEdges
+  //     }
+  //     )
+  //   },
+  //   [],
+  // );
+
+  const onConnect = (params) => {
+
+    const nodeIndex = nodes.findIndex((node) => node.id === params.source)
+    // const result = nodes.find((node) => node.id === params.source);
+    const sourceNode = nodes[nodeIndex]
+      console.log("SoureNode",sourceNode);
+
+      setEdges((eds) => {
+        const newEdges = addEdge(params, eds)
+        if(sourceNode.type === "condition"){
+          const index = newEdges.length -1
+          if(sourceNode.data.connectionsNumber == 0){
+            newEdges[index].label = "IF"
+            newEdges[index].type = "IF"
+          }else{
+            newEdges[index].label = "ELSE"
+            newEdges[index].type = "ELSE"
+          }
+          sourceNode.data.connectionsNumber = sourceNode.data.connectionsNumber+1
+          nodes[nodeIndex] = sourceNode
+          console.log("Connection",newEdges);
+        }
+        
+        return newEdges
+      }
+    )
+  };
   
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     console.log("Draggind event",event);
-    
   }, []);
 
   const onReconnectStart = useCallback(() => {
@@ -172,17 +212,49 @@ const Flow = () => {
         x: event.clientX,
         y: event.clientY,
       });
-      const newNode = {
-        id: getId(),
-        type,
-        position,
-        data: { label: `${type} node` },
-      };
+      let newNode;
+
+      if(type === "condition"){
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, connectionsNumber:0 },
+        };
+      }else{
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node` },
+        };
+
+      }
+
 
       setNodes((nds) => nds.concat(newNode));
     },
     [screenToFlowPosition, type],
   );
+
+  const generateArtifact = () => {
+    let data = {
+      nodes,
+      edges
+    }
+    console.log({data});
+
+    const jsonData = JSON.stringify(data);
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+            
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.json';
+    a.click();
+            
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div style={{ width: '100vw', height: '100vh' }} tabIndex={0} >
@@ -207,7 +279,7 @@ const Flow = () => {
             <Controls />
             <Background />
           </ReactFlow>
-          <button onClick={generateArtifact()}>Deploy</button>
+          <button onClick={generateArtifact}>Deploy</button>
         </div>
         <Sidebar />
       </div>
