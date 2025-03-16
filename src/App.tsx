@@ -148,33 +148,33 @@ const Flow = () => {
   //   [],
   // );
 
-  const onConnect = (params) => {
-
+  const onConnect = useCallback(
+    (params) => { 
     const nodeIndex = nodes.findIndex((node) => node.id === params.source)
-    // const result = nodes.find((node) => node.id === params.source);
     const sourceNode = nodes[nodeIndex]
-      console.log("SoureNode",sourceNode);
 
-      setEdges((eds) => {
+      setEdges((eds) => {        
+
         const newEdges = addEdge(params, eds)
         if(sourceNode.type === "condition"){
+          
           const index = newEdges.length -1
-          if(sourceNode.data.connectionsNumber == 0){
-            newEdges[index].label = "IF"
-            newEdges[index].type = "IF"
+          if(!sourceNode.data.thenConnection){
+            newEdges[index].label = "THEN"
+            newEdges[index].type = "THEN"
+            sourceNode.data.thenConnection = true
           }else{
             newEdges[index].label = "ELSE"
             newEdges[index].type = "ELSE"
+            sourceNode.data.elseConnection = true
           }
-          sourceNode.data.connectionsNumber = sourceNode.data.connectionsNumber+1
           nodes[nodeIndex] = sourceNode
-          console.log("Connection",newEdges);
         }
-        
         return newEdges
       }
     )
-  };
+  },[nodes]
+  )
   
   const onDragOver = useCallback((event) => {
     event.preventDefault();
@@ -191,13 +191,32 @@ const Flow = () => {
     setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
   }, []);
   
+  // Delete edge
   const onReconnectEnd = useCallback((_, edge) => {
+    
     if (!edgeReconnectSuccessful.current) {
-      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      const nodeIndex = nodes.findIndex((node) => node.id === edge.source)
+      const sourceNode = nodes[nodeIndex]
+
+      // setEdges((eds) => eds.filter((e) => {
+      //   const edgesResult = e.id !== edge.id
+      // }));
+
+      if(sourceNode.type === "condition"){
+        if(edge.label == 'THEN'){
+          sourceNode.data.thenConnection = false          
+        }
+        
+        if(edge.label == 'ELSE'){
+          sourceNode.data.elseConnection = false
+        }
+      }
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id ));
+
     }
   
     edgeReconnectSuccessful.current = true;
-  }, []);
+  }, [nodes]);
   
   const onDrop = useCallback(
     (event) => {
@@ -219,7 +238,7 @@ const Flow = () => {
           id: getId(),
           type,
           position,
-          data: { label: `${type} node`, connectionsNumber:0 },
+          data: { label: `${type} node`, thenConnection: false , elseConnection: false },
         };
       }else{
         newNode = {
@@ -230,8 +249,6 @@ const Flow = () => {
         };
 
       }
-
-
       setNodes((nds) => nds.concat(newNode));
     },
     [screenToFlowPosition, type],

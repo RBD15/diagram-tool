@@ -8,18 +8,7 @@ import {
   type Node,
 } from '@xyflow/react';
 
-// type conditionConnections = {
-
-//   connections: 2
-//   currentConnection: 0
-//   newConnetion: () => {
-//     if(this.currentConnection < 2){
-//       this.currentConnection++
-//     }
-//   }
-// }
- 
-function ConditionNode({ id, data }: NodeProps<Node<{ name:string, condition:string, value: string, connectionsNumber: number }>>) {
+function ConditionNode({ id, data }: NodeProps<Node<{ name:string, condition:string, value: string, thenConnection: boolean, elseConnection: boolean }>>) {
   const { updateNodeData } = useReactFlow();
   const title = `node ${id}` 
   const icon = "https://alo-project-front.s3.us-east-1.amazonaws.com/init.png"

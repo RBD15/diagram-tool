@@ -5,9 +5,9 @@ import App from './App.tsx'
 import { VariablesProvider } from './context/variables.tsx'
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  // <StrictMode>
     <VariablesProvider>
       <App />
     </VariablesProvider>
-  </StrictMode>,
+  // </StrictMode>,
 )
