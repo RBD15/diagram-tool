@@ -1,14 +1,19 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import {
   Handle,
   Position,
   useHandleConnections,
   useNodesData,
+  useReactFlow,
+  type NodeProps,
+  type Node,
 } from '@xyflow/react';
 
-import { isVariableNode, type MyNode } from './initialElements';
+import { type MyNode } from './initialElements';
  
-function ResultNode({id: string}) {
+function PrintNode({ id, data }: NodeProps<Node<{ code: string }>>) {
+
+  const { updateNodeData } = useReactFlow();
 
   const connections = useHandleConnections({
     type: 'target',
@@ -18,24 +23,18 @@ function ResultNode({id: string}) {
     connections.map((connection) => connection.source),
   );
   
-  const variableNodes = nodesData.filter(isVariableNode);
-
   return (
     <div>
       <Handle type="target" position={Position.Left} />
-      {/* <input
-          onChange={(evt) => updateNodeData(id, { input: evt.target.value })}
-          value={data.text} 
+      <h6>Print</h6>
+      <input
+          onChange={(evt) => updateNodeData(id, { code: evt.target.value })}
+          value={data.code} 
           style={{ display: 'inline' }}
-      /> */}
-      <div>
-        incoming texts:{' '}
-        {variableNodes.map(({ data }, i) => <div key={i}>{data.value}</div>) ||
-          'none'}
-      </div>
+      />
       <Handle type="source" position={Position.Right} />
     </div>
   );
 }
  
-export default memo(ResultNode);
+export default memo(PrintNode);

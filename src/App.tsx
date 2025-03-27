@@ -28,7 +28,7 @@ import ConditionNode from './nodes/ConditionNode';
 
 const nodeTypes = {
   variable: VariableNode,
-  result: PrintNode,
+  print: PrintNode,
   uppercase: UppercaseNode,
   init: InitNode,
   end: EndNode,

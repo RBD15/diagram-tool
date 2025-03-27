@@ -19,7 +19,7 @@ export default () => {
       <div className="dndnode" onDragStart={(event) => onDragStart(event, 'variable')} draggable>
         Variable Node
       </div>
-      <div className="dndnode output" onDragStart={(event) => onDragStart(event, 'result')} draggable>
+      <div className="dndnode output" onDragStart={(event) => onDragStart(event, 'print')} draggable>
         Print Node
       </div>
       <div className="dndnode output" onDragStart={(event) => onDragStart(event, 'condition')} draggable>

@@ -33,12 +33,12 @@ function ConditionNode({ id, data }: NodeProps<Node<{ name:string, condition:str
           style={{ display: 'inline' }}
       />
         <select id="conditions" name="conditions" value={data.condition} onChange={(evt) => updateNodeData(id, { condition: evt.target.value })}>
-            <option value="greater_than">&gt; </option>
-            <option value="less_than">&lt; </option>
-            <option value="greater_equal">&gt;=</option>
-            <option value="less_equal">&lt;= </option>
-            <option value="equal">== </option>
-            <option value="not_equal">!= </option>
+            <option value=">">&gt; </option>
+            <option value="<">&lt; </option>
+            <option value=">=">&gt;=</option>
+            <option value="<=">&lt;= </option>
+            <option value="==">== </option>
+            <option value="!=">!= </option>
         </select>
       <input
         onChange={(evt) => updateNodeData(id, { value: evt.target.value })}
