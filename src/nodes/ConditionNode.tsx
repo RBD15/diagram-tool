@@ -32,8 +32,8 @@ function ConditionNode({ id, data }: NodeProps<Node<{ name:string, condition:str
           value={data.name}
           style={{ display: 'inline' }}
       />
-        <select id="conditions" name="conditions" value={data.condition} onChange={(evt) => updateNodeData(id, { condition: evt.target.value })}>
-            <option value=">">&gt; </option>
+        <select id="conditions" name="conditions" value={data.condition} onChange={(evt) => updateNodeData(id, { condition: evt.target.value }) }>
+            <option defaultValue=">">&gt; </option>
             <option value="<">&lt; </option>
             <option value=">=">&gt;=</option>
             <option value="<=">&lt;= </option>

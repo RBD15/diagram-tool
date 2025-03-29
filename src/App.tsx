@@ -238,7 +238,7 @@ const Flow = () => {
           id: getId(),
           type,
           position,
-          data: { label: `${type} node`, thenConnection: false , elseConnection: false },
+          data: { label: `${type} node`, thenConnection: false , elseConnection: false, condition: '>' },
         };
       }else{
         newNode = {
