@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -123,30 +123,9 @@ const Flow = () => {
   const reactFlowWrapper = useRef(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initEdges);
+  const [selectedNodeIds, setSelectedNodeIds] = useState([]);
   const { screenToFlowPosition } = useReactFlow();
   const [type] = useDnD();
-  
-  // const onConnect = useCallback(
-  //   (params) => {
-  //     // console.log("Nodes",nodes);
-  //     console.log("Edge parms",params);
-  //     const sourceNode = nodes.find((node) => node.id === params.source);
-  //     console.log("SoureNode",sourceNode);
-
-  //     setEdges((eds) => {
-  //       const newEdges = addEdge(params, eds)
-
-  //       const index = newEdges.length -1
-  //       newEdges[index].label = "IF"
-  //       newEdges[index].type = "IF"
-  //       console.log("Connection",newEdges);
-        
-  //       return newEdges
-  //     }
-  //     )
-  //   },
-  //   [],
-  // );
 
   const onConnect = useCallback(
     (params) => { 
@@ -249,7 +228,12 @@ const Flow = () => {
         };
 
       }
-      setNodes((nds) => nds.concat(newNode));
+      
+      if(newNode.type === "init"){
+        setNodes((nds) => [newNode, ...nds]);
+      }else{
+        setNodes((nds) => nds.concat(newNode));
+      }
     },
     [screenToFlowPosition, type],
   );
@@ -273,6 +257,34 @@ const Flow = () => {
     URL.revokeObjectURL(url);
   }
 
+  // Detecta el nodo seleccionado
+  const onNodeClick = useCallback((event, node) => {
+    setSelectedNodeIds([node.id]);
+  }, []);
+
+  // Elimina nodo al presionar "Delete"
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === 'Delete' && selectedNodeIds.length > 0) {
+        setNodes((nds) => nds.filter((node) => !selectedNodeIds.includes(node.id)));
+        setEdges((eds) =>
+          eds.filter(
+            (edge) =>
+              !selectedNodeIds.includes(edge.source) &&
+              !selectedNodeIds.includes(edge.target)
+          )
+        );
+        setSelectedNodeIds([]);
+      }
+    },
+    [selectedNodeIds, setNodes, setEdges]
+  );
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
     <div style={{ width: '100vw', height: '100vh' }} tabIndex={0} >
       <div className="dndflow">
@@ -289,6 +301,7 @@ const Flow = () => {
             onReconnect={onReconnect}
             onReconnectStart={onReconnectStart}
             onReconnectEnd={onReconnectEnd}
+            onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
             fitView
             style={{ backgroundColor: "#F7F9FB" }}
