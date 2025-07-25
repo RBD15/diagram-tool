@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { memo } from 'react';
 import {
   Position,
@@ -19,6 +21,7 @@ function VariableNode({ id, data }: NodeProps<Node<{ name:string, value: string 
 
   return (
     <div>
+      <FontAwesomeIcon icon={faPlus} />
       <div>{title}</div>
         <Handle
           type="target"
@@ -26,7 +29,6 @@ function VariableNode({ id, data }: NodeProps<Node<{ name:string, value: string 
           // isConnectable={connections.length === 0}
         />
       <div>
-        <img src={icon} alt="" width={25} height={25} />
         <input
           onChange={(evt) => updateNodeData(id, { name: evt.target.value })}
           value={data.name}
