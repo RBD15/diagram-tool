@@ -1,6 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlay } from '@fortawesome/free-solid-svg-icons';
+import { faUserSecret } from '@fortawesome/free-solid-svg-icons';
 import { memo } from 'react';
+
 import {
   Position,
   Handle,
@@ -10,25 +11,22 @@ import {
   Node,
   type NodeProps,
 } from '@xyflow/react';
-  
-function InitNode({ id, setting }: NodeProps<Node<{setting: any}>>) {
+ 
+// import { type MyNode } from './initialElements';
+ 
+function QueueNode({ id, setting }: NodeProps<Node<{setting: any}>>) {
   const { updateNodeData } = useReactFlow();
   
   // useEffect(() => {
   //   updateNodeData(id, { setting });
   // }, [variableNode]);
-
   return (
     <div>
-      <FontAwesomeIcon icon={faPlay} />
-      {/* <Handle
-        type="target"
-        position={Position.Left}
-        isConnectable={true}
-      /> */}
+      <FontAwesomeIcon icon={faUserSecret} />
+      <Handle type="target" position={Position.Left}/>
       <Handle type="source" position={Position.Right} />
     </div>
   );
 }
  
-export default memo(InitNode);
+export default memo(QueueNode);

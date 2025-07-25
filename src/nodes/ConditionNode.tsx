@@ -1,3 +1,4 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { memo } from 'react';
 import {
   Position,
@@ -7,6 +8,7 @@ import {
   type NodeProps,
   type Node,
 } from '@xyflow/react';
+import { faEquals } from '@fortawesome/free-solid-svg-icons';
 
 function ConditionNode({ id, data }: NodeProps<Node<{ name:string, condition:string, value: string, thenConnection: boolean, elseConnection: boolean }>>) {
   const { updateNodeData } = useReactFlow();
@@ -19,14 +21,13 @@ function ConditionNode({ id, data }: NodeProps<Node<{ name:string, condition:str
 
   return (
     <div>
-      <div>{title}</div>
-      <div>Condition</div>
+      <FontAwesomeIcon icon={faEquals} />
+      {/* <div>{title}</div> */}
         <Handle
           type="target"
           position={Position.Left}
         />
       <div>
-        <img src={icon} alt="" width={25} height={25} />
         <input
           onChange={(evt) => updateNodeData(id, { name: evt.target.value })}
           value={data.name}

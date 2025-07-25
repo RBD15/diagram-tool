@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { memo } from 'react';
 import {
   Handle,
@@ -26,7 +28,7 @@ function PrintNode({ id, data }: NodeProps<Node<{ code: string }>>) {
   return (
     <div>
       <Handle type="target" position={Position.Left} />
-      <h6>Print</h6>
+      <FontAwesomeIcon icon={faPaperPlane} />
       <input
           onChange={(evt) => updateNodeData(id, { code: evt.target.value })}
           value={data.code} 

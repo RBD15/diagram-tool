@@ -25,6 +25,7 @@ import VariableNode from './nodes/VariableNode';
 import InitNode from './nodes/InitNode';
 import EndNode from './nodes/EndNode';
 import ConditionNode from './nodes/ConditionNode';
+import QueueNode from './nodes/QueueNode';
 
 const nodeTypes = {
   variable: VariableNode,
@@ -32,7 +33,8 @@ const nodeTypes = {
   uppercase: UppercaseNode,
   init: InitNode,
   end: EndNode,
-  condition: ConditionNode
+  condition: ConditionNode,
+  queue: QueueNode
 };
 
 const initialNodes: MyNode[] = []
@@ -116,7 +118,6 @@ const initEdges: Edge[] = []
 
 let id = 1;
 const getId = () => `${id++}`;
-
 
 const Flow = () => {
   const edgeReconnectSuccessful = useRef(true);

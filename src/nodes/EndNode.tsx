@@ -1,4 +1,6 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCircle } from '@fortawesome/free-solid-svg-icons';
 import {
   Position,
   Handle,
@@ -8,20 +10,18 @@ import {
   Node,
   type NodeProps,
 } from '@xyflow/react';
- 
-// import { type MyNode } from './initialElements';
- 
+
+
 function EndNode({ id, lastSteps }: NodeProps<Node<{lastSteps: any}>>) {
   const { updateNodeData } = useReactFlow();
   
   // useEffect(() => {
   //   updateNodeData(id, { setting });
   // }, [variableNode]);
-  const icon = "https://alo-project-front.s3.us-east-1.amazonaws.com/end.png"
 
   return (
     <div>
-      <img src={icon} alt="" width={25} height={25} />
+      <FontAwesomeIcon icon={faCircle} />
       <Handle
         type="target"
         position={Position.Left}
