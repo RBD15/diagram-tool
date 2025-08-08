@@ -26,6 +26,8 @@ import InitNode from './nodes/InitNode';
 import EndNode from './nodes/EndNode';
 import ConditionNode from './nodes/ConditionNode';
 import QueueNode from './nodes/QueueNode';
+import { RequestClient } from './db/RequestClient';
+import { AxiosResponse } from 'axios';
 
 const nodeTypes = {
   variable: VariableNode,
@@ -39,6 +41,7 @@ const nodeTypes = {
 
 const initialNodes: MyNode[] = []
 const initEdges: Edge[] = []
+
 
 // const initialNodes: MyNode[] = [
 //   {
@@ -111,20 +114,34 @@ const initEdges: Edge[] = []
 //   },
 // ];
 
-
-//TODO: Global context for variables variables{nombre:value} call in result
-//  node like 'Bienvenido {nombre}' donde {} marca la variable y se imprime
-//  como `Bienvenido ${context.variables['variableName']}`
-
 let id = 1;
 const getId = () => `${id++}`;
 
 const Flow = () => {
+
+  type FlowForm = {
+    name: string;
+    type: string;
+  };
+
   const edgeReconnectSuccessful = useRef(true);
   const reactFlowWrapper = useRef(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initEdges);
   const [selectedNodeIds, setSelectedNodeIds] = useState([]);
+  const [flowForm, setFlowForm] = useState<FlowForm>({
+    name: '',
+    type: ''
+  });
+
+  const handleFlowForm = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFlowForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const { screenToFlowPosition } = useReactFlow();
   const [type] = useDnD();
 
@@ -239,23 +256,47 @@ const Flow = () => {
     [screenToFlowPosition, type],
   );
 
-  const generateArtifact = () => {
+  const generateArtifact = async () => {
     let data = {
       nodes,
       edges
     }
     console.log({data});
+    
+    try {
 
-    const jsonData = JSON.stringify(data);
-    const blob = new Blob([jsonData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-            
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'data.json';
-    a.click();
-            
-    URL.revokeObjectURL(url);
+      
+      const flowVO = {
+        name:flowForm.name,
+        code:"1009",
+        type:flowForm.type,
+        data
+      }
+      const baseURL = 'http://localhost:8080/api/'
+      const requestClient: RequestClient = new RequestClient(baseURL)
+      const result: AxiosResponse = await requestClient.post('flows',flowVO)
+
+      if(!result){
+        alert("Error storing flow")
+        return
+      }
+
+      alert("Flow was storing successfully")
+
+      // const jsonData = JSON.stringify(data);
+      // const blob = new Blob([jsonData], { type: 'application/json' });
+      // const url = URL.createObjectURL(blob);
+              
+      // const a = document.createElement('a');
+      // a.href = url;
+      // a.download = 'data.json';
+      // a.click();
+              
+      // URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.log("RequestClient error",error);
+    }
   }
 
   // Detecta el nodo seleccionado
@@ -310,7 +351,28 @@ const Flow = () => {
             <Controls />
             <Background />
           </ReactFlow>
+          <div>
+            
+          <label>Name:</label>
+            <input
+              type="text"
+              name="name"
+              value={flowForm.name}
+              onChange={handleFlowForm}
+            />
+          </div>
+          <div>
+            <label>Type:</label>
+            <input
+              type="text"
+              name="type"
+              value={flowForm.type}
+              onChange={handleFlowForm}
+            />
+          </div>
+
           <button onClick={generateArtifact}>Deploy</button>
+
         </div>
         <Sidebar />
       </div>
