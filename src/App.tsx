@@ -30,6 +30,7 @@ import { RequestClient } from './db/RequestClient';
 import { AxiosResponse } from 'axios';
 import { getQueues } from './hooks/queues/getQueue';
 import ModalComponent from './components/Modal';
+import { validateFlow } from './flow/application/validateFlow';
 
 const nodeTypes = {
   variable: VariableNode,
@@ -141,6 +142,13 @@ const Flow = () => {
     flowCodeRef.current += 1;
     return `${flowCodeRef.current}`;
   }, []);
+  const [validation, setValidation] = useState(() => validateFlow(nodes, edges));
+  const hasQueueNode = nodes.some((node) => node.type === 'queue');
+  const pendingValidationItems = validation.items.filter((item) => {
+    if (item.passed) return false;
+    if (item.id === 'queue-node' && !hasQueueNode) return false;
+    return true;
+  });
 
   useEffect(()=>{
     const fetchQueues = async (baseURL:string) => {
@@ -155,6 +163,10 @@ const Flow = () => {
     }
     fetchQueues(baseURL)
   },[])
+
+  useEffect(() => {
+    setValidation(validateFlow(nodes, edges));
+  }, [nodes, edges]);
 
   const handleFlowForm = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -285,6 +297,12 @@ const Flow = () => {
   );
 
   const generateArtifact = async () => {
+    const validationResult = validateFlow(nodes, edges);
+    setValidation(validationResult);
+    if (!validationResult.isValid) {
+      alert('El flujo no cumple las validaciones. Corrige los errores para desplegar.');
+      return;
+    }
     let data = {
       nodes,
       edges
@@ -394,27 +412,29 @@ const Flow = () => {
     <div style={{ width: '100vw', height: '100vh' }} tabIndex={0} >
       <div className="dndflow">
         <div className="reactflow-wrapper" ref={reactFlowWrapper}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            snapToGrid
-            onReconnect={onReconnect}
-            onReconnectStart={onReconnectStart}
-            onReconnectEnd={onReconnectEnd}
-            onNodeClick={onNodeClick}
-            onNodeDoubleClick={handleNodeDoubleClick}
-            nodeTypes={nodeTypes}
-            fitView
-            style={{ backgroundColor: "#F7F9FB" }}
-          >
-            <Controls />
-            <Background />
-          </ReactFlow>
+          <div className="reactflow-canvas">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              snapToGrid
+              onReconnect={onReconnect}
+              onReconnectStart={onReconnectStart}
+              onReconnectEnd={onReconnectEnd}
+              onNodeClick={onNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
+              nodeTypes={nodeTypes}
+              fitView
+              style={{ backgroundColor: "#F7F9FB" }}
+            >
+              <Controls />
+              <Background />
+            </ReactFlow>
+          </div>
             <div>
             <label>Name:</label>
               <input
@@ -435,6 +455,26 @@ const Flow = () => {
             </div>
 
             <button onClick={generateArtifact}>Deploy</button>
+
+            <div className="validation-panel">
+              <div className="validation-header">
+                <strong>Validación del flujo</strong>
+                <span className={validation.isValid ? 'status-ok' : 'status-error'}>
+                  {validation.isValid ? 'Listo para desplegar' : 'Pendiente'}
+                </span>
+              </div>
+              <ul>
+                {pendingValidationItems.length === 0 ? (
+                  <li className="status-ok">✅ Sin validaciones pendientes</li>
+                ) : (
+                  pendingValidationItems.map((item) => (
+                    <li key={item.id} className="status-error">
+                      ❌ {item.label}
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
 
             {queues.length>0 && <div style={{ padding: '20px' }}>
               {/* <h1>Opción seleccionada: {queueSelected}</h1>
