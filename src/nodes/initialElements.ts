@@ -7,7 +7,9 @@ export type ConditionNode = Node<{ name:string, condition: string ,value: string
 export type PrintNode = Node<{code: string}, 'print'>;
 export type QueueNode = Node<{queueID: string}, 'queue'>;
 export type UppercaseNode = Node<{ text: string }, 'uppercase'>;
-export type MyNode = InitNode | EndNode | VariableNode | PrintNode | UppercaseNode | ConditionNode | QueueNode;
+export type ApiNode = Node<{ method?: string; url?: string; headers?: string; body?: string; responseVar?: string }, 'api'>;
+export type CaseNode = Node<{ caseValues?: string[] }, 'case'>;
+export type MyNode = InitNode | EndNode | VariableNode | PrintNode | UppercaseNode | ConditionNode | QueueNode | ApiNode | CaseNode;
 
 export function isVariableNode(
   node: any,

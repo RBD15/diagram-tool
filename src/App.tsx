@@ -26,10 +26,13 @@ import InitNode from './nodes/InitNode';
 import EndNode from './nodes/EndNode';
 import ConditionNode from './nodes/ConditionNode';
 import QueueNode from './nodes/QueueNode';
+import ApiNode from './nodes/ApiNode';
+import CaseNode from './nodes/CaseNode';
 import { RequestClient } from './db/RequestClient';
 import { AxiosResponse } from 'axios';
 import { getQueues } from './hooks/queues/getQueue';
 import ModalComponent from './components/Modal';
+import CaseSelectModal from './components/CaseSelectModal';
 import { validateFlow } from './flow/application/validateFlow';
 
 const nodeTypes = {
@@ -39,7 +42,9 @@ const nodeTypes = {
   init: InitNode,
   end: EndNode,
   condition: ConditionNode,
-  queue: QueueNode
+  queue: QueueNode,
+  api: ApiNode,
+  case: CaseNode
 };
 
 const initialNodes: MyNode[] = []
@@ -132,6 +137,9 @@ const Flow = () => {
   const [queues,setQueues] = useState([])
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initEdges);
+  const [caseSelectOpen, setCaseSelectOpen] = useState(false);
+  const [caseSelectOptions, setCaseSelectOptions] = useState<string[]>([]);
+  const [pendingEdgeParams, setPendingEdgeParams] = useState<any>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState([]);
   const [flowForm, setFlowForm] = useState<FlowForm>({
     name: '',
@@ -188,7 +196,6 @@ const Flow = () => {
 
         const newEdges = addEdge(params, eds)
         if(sourceNode.type === "condition"){
-          
           const index = newEdges.length -1
           if(!sourceNode.data.thenConnection){
             newEdges[index].label = "THEN"
@@ -201,11 +208,53 @@ const Flow = () => {
           }
           nodes[nodeIndex] = sourceNode
         }
+
+        // Case node with single central output: open selection modal instead of immediate edge add
+        if (sourceNode.type === 'case') {
+          // Prepare options and store pending params; do not add edge yet
+          const caseVals: string[] = sourceNode.data?.caseValues ?? [];
+          const opts = ['DEFAULT', ...caseVals];
+          // compute already connected labels from current edges
+          const existing = eds
+            .filter((e) => e.source === sourceNode.id)
+            .map((e) => (e.label ?? e.type ?? ''))
+            .filter((s) => !!s);
+          const filtered = opts.filter((o) => !existing.includes(o));
+          if (filtered.length === 0) {
+            alert('No remaining case outputs to connect for this Case node');
+            return eds;
+          }
+          setCaseSelectOptions(filtered);
+          setPendingEdgeParams(params);
+          setCaseSelectOpen(true);
+          return eds; // don't add edge now
+        }
         return newEdges
       }
     )
   },[nodes]
   )
+
+  const handleCaseSelect = useCallback((selectedIdx: number) => {
+    if (!pendingEdgeParams) return;
+    const params = pendingEdgeParams;
+    const sourceId = params.source;
+    const opts = caseSelectOptions;
+    const chosen = opts[selectedIdx];
+    setEdges((eds) => {
+      // prevent multiple DEFAULT
+      if (chosen === 'DEFAULT') {
+        const alreadyDefault = eds.some((e) => e.source === sourceId && (e.label === 'DEFAULT' || e.type === 'DEFAULT'));
+        if (alreadyDefault) {
+          alert('Default connection already exists for this Case node');
+          return eds;
+        }
+      }
+      const newE = addEdge({ ...params, label: chosen === 'DEFAULT' ? 'DEFAULT' : chosen, type: chosen === 'DEFAULT' ? 'DEFAULT' : undefined }, eds);
+      return newE;
+    });
+    setPendingEdgeParams(null);
+  }, [pendingEdgeParams, caseSelectOptions, setEdges]);
   
   const onDragOver = useCallback((event) => {
     event.preventDefault();
@@ -277,6 +326,13 @@ const Flow = () => {
           type,
           position,
           data: { label: `${type} node`, queueID: undefined },
+        }
+      }else if(type === 'case'){
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, caseValues: [], inputVar: '', defaultAssigned: true },
         }
       }else{
         newNode = {
@@ -434,6 +490,12 @@ const Flow = () => {
               <Controls />
               <Background />
             </ReactFlow>
+              <CaseSelectModal
+                isOpen={caseSelectOpen}
+                options={caseSelectOptions}
+                onClose={() => { setCaseSelectOpen(false); setPendingEdgeParams(null); }}
+                onSelect={(i) => { handleCaseSelect(i); setCaseSelectOpen(false); }}
+              />
           </div>
             <div>
             <label>Name:</label>

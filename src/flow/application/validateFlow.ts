@@ -61,6 +61,28 @@ export const validateFlow = (
       return typeof queueId === 'string' && queueId.trim().length > 0;
     });
 
+  const caseNodesOk = currentNodes
+    .filter((node) => node.type === 'case')
+    .every((node) => {
+      const outs = outgoing.get(node.id) ?? [];
+      return outs.some((edge) => edge.label === 'DEFAULT' || edge.type === 'DEFAULT');
+    });
+
+  const apiNodesOk = currentNodes
+    .filter((node) => node.type === 'api')
+    .every((node) => {
+      const d = node.data as { method?: string; url?: string; responseVar?: string; body?: string };
+      const method = (d.method ?? '').toUpperCase();
+      const hasMethod = typeof d.method === 'string' && d.method.trim().length > 0;
+      const hasUrl = typeof d.url === 'string' && d.url.trim().length > 0;
+      const hasResp = typeof d.responseVar === 'string' && d.responseVar.trim().length > 0;
+      if (!hasMethod || !hasUrl || !hasResp) return false;
+      if (['POST', 'PUT', 'UPDATE'].includes(method)) {
+        return typeof d.body === 'string' && d.body.trim().length > 0;
+      }
+      return true;
+    });
+
   const dfs = (nodeId: string, visiting: Set<string>): boolean => {
     const node = nodeById.get(nodeId);
     if (!node) return false;
@@ -114,6 +136,16 @@ export const validateFlow = (
       id: 'queue-node',
       label: 'QueueNode debe tener queueID',
       passed: queueNodesOk,
+    },
+    {
+      id: 'api-node',
+      label: 'ApiNode debe tener method, url y variable de respuesta (body si aplica)',
+      passed: apiNodesOk,
+    },
+    {
+      id: 'case-node',
+      label: 'CaseNode debe tener la conexión por defecto (DEFAULT)',
+      passed: caseNodesOk,
     },
   ];
 

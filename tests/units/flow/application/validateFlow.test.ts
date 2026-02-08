@@ -44,6 +44,20 @@ const queueNode = (id: string, queueID?: string): MyNode => ({
   position: { x: 0, y: 0 },
 });
 
+const apiNode = (id: string, opts?: { method?: string; url?: string; responseVar?: string; body?: string }): MyNode => ({
+  id,
+  type: 'api' as any,
+  data: { method: opts?.method, url: opts?.url, responseVar: opts?.responseVar, body: opts?.body },
+  position: { x: 0, y: 0 },
+});
+
+const caseNode = (id: string, values?: string[]): MyNode => ({
+  id,
+  type: 'case' as any,
+  data: { caseValues: values ?? [] },
+  position: { x: 0, y: 0 },
+});
+
 const edge = (id: string, source: string, target: string, label?: string, type?: string): Edge => ({
   id,
   source,
@@ -118,6 +132,8 @@ describe('validateFlow', () => {
       initNode('init-1'),
       conditionNode('cond-1'),
       queueNode('queue-1', 'queue-id-1'),
+      apiNode('api-1', { method: 'GET', url: 'https://example.com', responseVar: 'resp' }),
+      caseNode('case-1', ['a','b']),
       endNode('end-1'),
       endNode('end-2'),
     ];
@@ -125,12 +141,37 @@ describe('validateFlow', () => {
       edge('e1', 'init-1', 'cond-1'),
       edge('e2', 'cond-1', 'queue-1', 'THEN', 'THEN'),
       edge('e3', 'queue-1', 'end-1'),
-      edge('e4', 'cond-1', 'end-2', 'ELSE', 'ELSE'),
+      edge('e4', 'cond-1', 'api-1', 'ELSE', 'ELSE'),
+      edge('e5', 'api-1', 'case-1'),
+      edge('e6', 'case-1', 'end-1', 'DEFAULT', 'DEFAULT'),
+      edge('e7', 'cond-1', 'end-2', 'ELSE', 'ELSE'),
     ];
 
     const result = validateFlow(nodes, edges);
 
     expect(result.isValid).toBe(true);
     expect(result.items.every((item) => item.passed)).toBe(true);
+  });
+
+  it('fails when an ApiNode misses required fields', () => {
+    const nodes: MyNode[] = [initNode('init-1'), apiNode('api-1', { method: 'POST' }), endNode('end-1')];
+    const edges: Edge[] = [edge('e1', 'init-1', 'api-1'), edge('e2', 'api-1', 'end-1')];
+
+    const result = validateFlow(nodes, edges);
+    // Should fail because url and responseVar missing and body required for POST
+    expect(result.isValid).toBe(false);
+    expect(result.items.find((item) => item.id === 'api-node')?.passed).toBe(false);
+  });
+
+  it('passes when ApiNode has method,url and responseVar and body when required', () => {
+    const nodes: MyNode[] = [
+      initNode('init-1'),
+      apiNode('api-1', { method: 'POST', url: 'https://a', responseVar: 'r', body: '{}' }),
+      endNode('end-1'),
+    ];
+    const edges: Edge[] = [edge('e1', 'init-1', 'api-1'), edge('e2', 'api-1', 'end-1')];
+
+    const result = validateFlow(nodes, edges);
+    expect(result.items.find((item) => item.id === 'api-node')?.passed).toBe(true);
   });
 });
