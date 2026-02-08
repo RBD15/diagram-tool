@@ -14,9 +14,9 @@ import {
  
 // import { type MyNode } from './initialElements';
  
-function QueueNode({ id, setting }: NodeProps<Node<{setting: any}>>) {
-  const { updateNodeData } = useReactFlow();
+function QueueNode({ id, data }: NodeProps<Node<{queueID: any}>>) {
   
+  // const { updateNodeData } = useReactFlow();
   // useEffect(() => {
   //   updateNodeData(id, { setting });
   // }, [variableNode]);

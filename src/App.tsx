@@ -28,6 +28,8 @@ import ConditionNode from './nodes/ConditionNode';
 import QueueNode from './nodes/QueueNode';
 import { RequestClient } from './db/RequestClient';
 import { AxiosResponse } from 'axios';
+import { getQueues } from './hooks/queues/getQueue';
+import ModalComponent from './components/Modal';
 
 const nodeTypes = {
   variable: VariableNode,
@@ -41,7 +43,6 @@ const nodeTypes = {
 
 const initialNodes: MyNode[] = []
 const initEdges: Edge[] = []
-
 
 // const initialNodes: MyNode[] = [
 //   {
@@ -126,6 +127,8 @@ const Flow = () => {
 
   const edgeReconnectSuccessful = useRef(true);
   const reactFlowWrapper = useRef(null);
+  const baseURL:string = "http://localhost:8080/"
+  const [queues,setQueues] = useState([])
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initEdges);
   const [selectedNodeIds, setSelectedNodeIds] = useState([]);
@@ -133,6 +136,25 @@ const Flow = () => {
     name: '',
     type: ''
   });
+  const flowCodeRef = useRef(1999);
+  const getNextFlowCode = useCallback(() => {
+    flowCodeRef.current += 1;
+    return `${flowCodeRef.current}`;
+  }, []);
+
+  useEffect(()=>{
+    const fetchQueues = async (baseURL:string) => {
+      try {
+        const queueList:any = await getQueues(baseURL)
+        console.log("Hook",queueList.data)
+        setQueues(queueList.data)
+      } catch (error) {
+        console.log("Error getting queues",error);
+        alert("Error getting queues")
+      }
+    }
+    fetchQueues(baseURL)
+  },[])
 
   const handleFlowForm = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -176,7 +198,7 @@ const Flow = () => {
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    console.log("Draggind event",event);
+    console.log("Dragging event",event);
   }, []);
 
   const onReconnectStart = useCallback(() => {
@@ -215,10 +237,10 @@ const Flow = () => {
     edgeReconnectSuccessful.current = true;
   }, [nodes]);
   
-  const onDrop = useCallback(
+  const onDrop = useCallback(  
     (event) => {
-      event.preventDefault();
-      console.log("Moving",event);
+      event.preventDefault()
+      console.log("Moving",event)
       
       if (!type) {
         return;
@@ -227,8 +249,8 @@ const Flow = () => {
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
-      });
-      let newNode;
+      })
+      let newNode
 
       if(type === "condition"){
         newNode = {
@@ -236,15 +258,21 @@ const Flow = () => {
           type,
           position,
           data: { label: `${type} node`, thenConnection: false , elseConnection: false, condition: '>' },
-        };
+        }
+      }else if(type === "queue"){
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, queueID: undefined },
+        }
       }else{
         newNode = {
           id: getId(),
           type,
           position,
           data: { label: `${type} node` },
-        };
-
+        }
       }
       
       if(newNode.type === "init"){
@@ -253,7 +281,7 @@ const Flow = () => {
         setNodes((nds) => nds.concat(newNode));
       }
     },
-    [screenToFlowPosition, type],
+    [screenToFlowPosition, type,queues]
   );
 
   const generateArtifact = async () => {
@@ -261,17 +289,17 @@ const Flow = () => {
       nodes,
       edges
     }
-    console.log({data});
+    // console.log({data});
     
     try {
-
-      
+      //Code must generate automatically
       const flowVO = {
         name:flowForm.name,
-        code:"1009",
+        code:getNextFlowCode(),
         type:flowForm.type,
         data
       }
+      
       const baseURL = 'http://localhost:8080/api/'
       const requestClient: RequestClient = new RequestClient(baseURL)
       const result: AxiosResponse = await requestClient.post('flows',flowVO)
@@ -295,13 +323,14 @@ const Flow = () => {
       // URL.revokeObjectURL(url);
 
     } catch (error) {
+      alert("Error uploading flow")
       console.log("RequestClient error",error);
     }
   }
 
   // Detecta el nodo seleccionado
   const onNodeClick = useCallback((event, node) => {
-    setSelectedNodeIds([node.id]);
+    setSelectedNodeIds([node.id])
   }, []);
 
   // Elimina nodo al presionar "Delete"
@@ -321,6 +350,40 @@ const Flow = () => {
     },
     [selectedNodeIds, setNodes, setEdges]
   );
+
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [queueSelected, setQueueSelected] = useState<string>('Ninguna');
+
+  const handleQueueUpdate = (option: string) => {    
+    setQueueSelected(option);
+      setNodes(
+        (prevNode) => prevNode.map((node) =>
+          selectedNodeIds.includes(node.id) ? { ...node, data: { ...node.data, queueID: option } } : node
+        )
+      );
+  };
+
+  const handleNodeDoubleClick = async(event: React.MouseEvent,currentNode: MyNode) => 
+  {
+    if(currentNode.type === 'queue'){
+      if(queues.length == 0){
+        const fetchQueues = async (baseURL:string) => {
+          try {
+            const queueList:any = await getQueues(baseURL)
+            console.log("Hook",queueList.data)
+            setQueues(queueList.data)
+            await fetchQueues(baseURL)
+            setModalOpen(true)
+          } catch (error) {
+            console.log("Error getting queues",error);
+            alert("Error getting queues")
+          }
+        }
+      }else{
+        setModalOpen(true)
+      }
+    }
+  };
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
@@ -344,6 +407,7 @@ const Flow = () => {
             onReconnectStart={onReconnectStart}
             onReconnectEnd={onReconnectEnd}
             onNodeClick={onNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
             nodeTypes={nodeTypes}
             fitView
             style={{ backgroundColor: "#F7F9FB" }}
@@ -351,27 +415,37 @@ const Flow = () => {
             <Controls />
             <Background />
           </ReactFlow>
-          <div>
-            
-          <label>Name:</label>
-            <input
-              type="text"
-              name="name"
-              value={flowForm.name}
-              onChange={handleFlowForm}
-            />
-          </div>
-          <div>
-            <label>Type:</label>
-            <input
-              type="text"
-              name="type"
-              value={flowForm.type}
-              onChange={handleFlowForm}
-            />
-          </div>
+            <div>
+            <label>Name:</label>
+              <input
+                type="text"
+                name="name"
+                value={flowForm.name}
+                onChange={handleFlowForm}
+              />
+            </div>
+            <div>
+              <label>Type:</label>
+              <input
+                type="text"
+                name="type"
+                value={flowForm.type}
+                onChange={handleFlowForm}
+              />
+            </div>
 
-          <button onClick={generateArtifact}>Deploy</button>
+            <button onClick={generateArtifact}>Deploy</button>
+
+            {queues.length>0 && <div style={{ padding: '20px' }}>
+              {/* <h1>Opción seleccionada: {queueSelected}</h1>
+              <button onClick={() => setModalOpen(true)}>Abrir Modal</button> */}
+              <ModalComponent
+                isOpen={isModalOpen}
+                onClose={() => setModalOpen(false)}
+                onUpdate={handleQueueUpdate}
+                options={queues}
+              />
+            </div>}
 
         </div>
         <Sidebar />

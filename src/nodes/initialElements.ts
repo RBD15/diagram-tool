@@ -5,7 +5,7 @@ export type EndNode = Node<{ lastSteps: any }, 'end'>;
 export type VariableNode = Node<{ name: string ,value: string }, 'variable'>;
 export type ConditionNode = Node<{ name:string, condition: string ,value: string, thenConnection: boolean, elseConnection: boolean }, 'condition'>;
 export type PrintNode = Node<{code: string}, 'print'>;
-export type QueueNode = Node<{code: string}, 'queue'>;
+export type QueueNode = Node<{queueID: string}, 'queue'>;
 export type UppercaseNode = Node<{ text: string }, 'uppercase'>;
 export type MyNode = InitNode | EndNode | VariableNode | PrintNode | UppercaseNode | ConditionNode | QueueNode;
 
