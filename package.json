@@ -16,6 +16,7 @@
     "@fortawesome/react-fontawesome": "^0.2.3",
     "@xyflow/react": "^12.4.4",
     "axios": "^1.11.0",
+    "rd-flow-handler": "file:../../FlowHandler",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "reactflow": "^11.11.4"
@@ -32,6 +33,7 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.22.0",
     "vite": "^6.1.0",
+    "vite-plugin-commonjs": "^0.10.4",
     "vitest": "^2.1.0"
   }
 }

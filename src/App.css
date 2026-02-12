@@ -40,3 +40,140 @@
 .read-the-docs {
   color: #888;
 }
+
+.flow-test-panel {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  width: 400px;
+  padding: 12px;
+  border: 1px solid #e1e6ef;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  max-height: 60vh;
+  min-height: 200px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.flow-test-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.flow-test-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-start {
+  background-color: #2e7d32;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-stop {
+  background-color: #c0392b;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-restart {
+  background-color: #f39c12;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.flow-test-status-bar {
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #666;
+}
+
+.flow-test-logs {
+  flex: 1;
+  overflow-y: auto;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-family: monospace;
+  font-size: 13px;
+  min-height: 0;
+}
+
+.log-entry {
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.log-time {
+  color: #999;
+  margin-right: 8px;
+  font-size: 11px;
+}
+
+.log-system {
+  color: #000;
+  font-weight: bold;
+}
+
+.log-prompt {
+  color: #2980b9;
+}
+
+.log-input {
+  color: #27ae60;
+  text-align: right;
+  font-style: italic;
+}
+
+.log-error {
+  color: #c0392b;
+}
+
+.log-prompt-active {
+  color: #2980b9;
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.flow-test-input-area {
+  display: flex;
+  gap: 8px;
+}
+
+.flow-test-input-area input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.status-idle { color: #7f8c8d; }
+.status-running { color: #f39c12; font-weight: bold; }
+.status-ended { color: #27ae60; font-weight: bold; }
+.status-error { color: #c0392b; font-weight: bold; }

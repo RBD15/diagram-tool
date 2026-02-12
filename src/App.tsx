@@ -34,6 +34,7 @@ import { getQueues } from './hooks/queues/getQueue';
 import ModalComponent from './components/Modal';
 import CaseSelectModal from './components/CaseSelectModal';
 import { validateFlow } from './flow/application/validateFlow';
+import { FlowTestView } from './components/FlowTestView';
 
 const nodeTypes = {
   variable: VariableNode,
@@ -537,6 +538,8 @@ const Flow = () => {
                 )}
               </ul>
             </div>
+
+            <FlowTestView nodes={nodes} edges={edges} isValid={validation.isValid} />
 
             {queues.length>0 && <div style={{ padding: '20px' }}>
               {/* <h1>Opción seleccionada: {queueSelected}</h1>
