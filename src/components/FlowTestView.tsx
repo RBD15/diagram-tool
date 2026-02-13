@@ -1,33 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import type { MyNode } from '../nodes/initialElements';
-import flowHandlerPkg from 'rd-flow-handler';
-
-const {
-  FlowHandler,
-  FlowCode,
-  NodePrototype,
-  UiWriteInterface,
-  ApiNode,
-  CaseNode,
-  ConditionNode,
-  EndNode,
-  InitNode,
-  PrintNode,
-  QueueNode,
-  VariableNode,
-} = flowHandlerPkg as any;
-
-const nodeClasses = [
-  ApiNode,
-  CaseNode,
-  ConditionNode,
-  EndNode,
-  InitNode,
-  PrintNode,
-  QueueNode,
-  VariableNode,
-];
+import {
+  createLogEntry,
+  type LogEntry,
+} from '../flow/domain/flowLog';
+import {
+  runFlowTest,
+  stopFlowExecution,
+  type FlowTestStatus,
+} from '../flow/application/flowTestRunner';
 
 type FlowTestViewProps = {
   nodes: MyNode[];
@@ -35,85 +17,29 @@ type FlowTestViewProps = {
   isValid: boolean;
 };
 
-type LogEntry = {
-  id: string;
-  type: 'system' | 'prompt' | 'input' | 'error';
-  message: string;
-  timestamp: string;
-  nodeName?: string;
-};
-
 export const FlowTestView: React.FC<FlowTestViewProps> = ({ nodes, edges, isValid }) => {
-  const [status, setStatus] = useState<'idle' | 'running' | 'ended' | 'error'>('idle');
+  const [status, setStatus] = useState<FlowTestStatus>('idle');
   const [prompt, setPrompt] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [logs, setLogs] = useState<LogEntry[]>([]);
   
-  const writeInterfaceRef = useRef<UiWriteInterface | null>(null);
+  const writeInterfaceRef = useRef<any | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const lastLoggedNodeIdRef = useRef<string | null>(null);
   const lastLoggedNodeNameRef = useRef<string>('Sistema');
 
-  const truncateMessage = (message: string, limit = 500) => {
-    if (message.length <= limit) return message;
-    return `${message.slice(0, limit)}... [truncated]`;
-  };
-
-  const addLog = (type: LogEntry['type'], message: string, nodeName?: string) => {
-    const safeMessage = truncateMessage(message, 800);
-    const entry: LogEntry = {
-      id: Math.random().toString(36).substring(7),
-      type,
-      message: safeMessage,
-      timestamp: new Date().toLocaleTimeString(),
-      nodeName: nodeName ?? 'Sistema',
-    };
+  const addLog = useCallback((type: LogEntry['type'], message: string, nodeName?: string) => {
+    const entry = createLogEntry(type, message, nodeName);
     setLogs((prev) => [...prev, entry]);
-  };
-
-  const getNodeLabel = (node: any) => {
-    if (!node) return 'desconocido';
-    const name = node?.data?.name || node?.data?.label;
-    return name ? `${name}` : `${node.type}`;
-  };
-
-  const getCurrentNodeFromState = (flowHandler: any) => {
-    try {
-      const state = flowHandler?.getFlowState?.();
-      const nodeId = state?.currentNodeId;
-      if (!nodeId) return null;
-      const node = state?.nodes?.find((n: any) => n.id === nodeId);
-      return { nodeId, node };
-    } catch (e) {
-      return null;
-    }
-  };
-
-  const logExecutedNode = (nodeInfo: { nodeId: string; node: any } | null) => {
-    if (!nodeInfo?.nodeId || nodeInfo.nodeId === lastLoggedNodeIdRef.current) return;
-    const nodeName = getNodeLabel(nodeInfo.node);
-    lastLoggedNodeIdRef.current = nodeInfo.nodeId;
-    lastLoggedNodeNameRef.current = nodeName;
-    addLog('system', `Nodo ejecutado (${nodeInfo.nodeId})`, nodeName);
-  };
+  }, []);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
   const stopRunningFlow = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    // If waiting for input, break it
-    if (writeInterfaceRef.current) {
-      try {
-        writeInterfaceRef.current.provideInput('__STOP__');
-      } catch (e) {
-        // ignore
-      }
-    }
+    stopFlowExecution(abortControllerRef, writeInterfaceRef);
   }, []);
 
   const handleStart = useCallback(async () => {
@@ -135,77 +61,33 @@ export const FlowTestView: React.FC<FlowTestViewProps> = ({ nodes, edges, isVali
     abortControllerRef.current = abortController;
     const signal = abortController.signal;
 
-    try {
-      const uiWrite = new UiWriteInterface((msg: string) => {
-        if (signal.aborted) return;
-        const safePrompt = truncateMessage(msg, 800);
-        setPrompt(safePrompt);
-        addLog('prompt', safePrompt, lastLoggedNodeNameRef.current);
-      });
-      writeInterfaceRef.current = uiWrite;
+    const result = await runFlowTest({
+      nodes,
+      edges,
+      signal,
+      addLog,
+      setPrompt,
+      writeInterfaceRef,
+      lastLoggedNodeIdRef,
+      lastLoggedNodeNameRef,
+    });
 
-      const nodePrototype = new NodePrototype(uiWrite, true, nodeClasses);
-      const flowCode = new FlowCode(nodes, edges, {}, nodePrototype);
-      if (typeof flowCode.setOnNodeVisit === 'function') {
-        flowCode.setOnNodeVisit((node: any) => {
-          if (signal.aborted) return;
-          const nodeName = getNodeLabel(node);
-          lastLoggedNodeNameRef.current = nodeName;
-          if (node?.id) {
-            lastLoggedNodeIdRef.current = node.id;
-          }
-          addLog('system', `Nodo ejecutado (${node?.id ?? 'N/A'})`, nodeName);
-        });
-      }
-      const flowHandler = new FlowHandler(flowCode);
+    if (result.aborted) return;
 
-      lastLoggedNodeIdRef.current = null;
-
-      // Execute first step
-      if (signal.aborted) return;
-      const firstNodeInfo = getCurrentNodeFromState(flowHandler);
-      if (firstNodeInfo?.node) {
-        lastLoggedNodeNameRef.current = getNodeLabel(firstNodeInfo.node);
-      }
-      await flowHandler.exec();
-      logExecutedNode(firstNodeInfo);
-
-      let ended = false;
-      while (!ended && !signal.aborted) {
-        // If aborted during previous exec, break
-        if (signal.aborted) break;
-
-        flowHandler.setFlow(flowCode);
-        const nodeInfo = getCurrentNodeFromState(flowHandler);
-        if (nodeInfo?.node) {
-          lastLoggedNodeNameRef.current = getNodeLabel(nodeInfo.node);
-        }
-        await flowHandler.exec();
-        logExecutedNode(nodeInfo);
-        
-        if (signal.aborted) break;
-        ended = flowHandler.isFlowEnded();
-      }
-
-      if (!signal.aborted) {
-        setStatus('ended');
-        setPrompt(null);
-        addLog('system', 'Flujo finalizado correctamente ✅', 'Sistema');
-      }
-    } catch (err) {
-      if (signal.aborted) return;
+    if (result.error) {
       setStatus('error');
-      const msg = (err as Error).message ?? 'Error';
-      addLog('error', `Error: ${msg}`, 'Sistema');
+      return;
     }
-  }, [edges, isValid, nodes, status, stopRunningFlow]);
+
+    setStatus('ended');
+  }, [addLog, edges, isValid, nodes, status, stopRunningFlow]);
 
   const handleStop = useCallback(() => {
     stopRunningFlow();
     setStatus('idle');
     setPrompt(null);
     addLog('system', '🛑 Test detenido por el usuario', 'Sistema');
-  }, [stopRunningFlow]);
+  }, [addLog, stopRunningFlow]);
 
   const handleRestart = useCallback(() => {
     handleStop();
