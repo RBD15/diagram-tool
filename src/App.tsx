@@ -20,7 +20,7 @@ import { DnDProvider, useDnD } from './components/DnDContext';
 // NODOS
 import PrintNode from './nodes/PrintNode';
 import UppercaseNode from './nodes/UppercaseNode';
-import { type MyNode } from './nodes/initialElements';
+import { type MyNode, type FlowType } from './nodes/initialElements';
 import VariableNode from './nodes/VariableNode';
 import InitNode from './nodes/InitNode';
 import EndNode from './nodes/EndNode';
@@ -28,6 +28,9 @@ import ConditionNode from './nodes/ConditionNode';
 import QueueNode from './nodes/QueueNode';
 import ApiNode from './nodes/ApiNode';
 import CaseNode from './nodes/CaseNode';
+import MenuNode from './nodes/MenuNode';
+import TranscribeNode from './nodes/TranscribeNode';
+import TalkNode from './nodes/TalkNode';
 import { RequestClient } from './db/RequestClient';
 import { AxiosResponse } from 'axios';
 import { getQueues } from './hooks/queues/getQueue';
@@ -45,11 +48,44 @@ const nodeTypes = {
   condition: ConditionNode,
   queue: QueueNode,
   api: ApiNode,
-  case: CaseNode
+  case: CaseNode,
+  menu: MenuNode,
+  transcribe: TranscribeNode,
+  talk: TalkNode,
 };
 
 const initialNodes: MyNode[] = []
 const initEdges: Edge[] = []
+
+type ActiveFlowType = Exclude<FlowType, 'all'>;
+
+const NODE_FLOW_TYPE: Record<string, FlowType> = {
+  init: 'all',
+  variable: 'all',
+  print: 'chat',
+  uppercase: 'all',
+  end: 'all',
+  condition: 'all',
+  queue: 'all',
+  api: 'all',
+  case: 'all',
+  menu: 'voice',
+  transcribe: 'voice',
+  talk: 'voice',
+};
+
+const MENU_OUTPUT_OPTIONS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '#', '*', 'INVALID'];
+
+const getNodeFlowType = (nodeType?: string): FlowType => {
+  if (!nodeType) return 'all';
+  return NODE_FLOW_TYPE[nodeType] ?? 'all';
+};
+
+const isNodeAllowedForFlow = (nodeType: string | undefined, flowType: ActiveFlowType | null) => {
+  if (!flowType) return false;
+  const nodeFlowType = getNodeFlowType(nodeType);
+  return nodeFlowType === 'all' || nodeFlowType === flowType;
+};
 
 // const initialNodes: MyNode[] = [
 //   {
@@ -141,11 +177,12 @@ const Flow = () => {
   const [caseSelectOpen, setCaseSelectOpen] = useState(false);
   const [caseSelectOptions, setCaseSelectOptions] = useState<string[]>([]);
   const [pendingEdgeParams, setPendingEdgeParams] = useState<any>(null);
-  const [selectedNodeIds, setSelectedNodeIds] = useState([]);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [flowForm, setFlowForm] = useState<FlowForm>({
     name: '',
     type: ''
   });
+  const [activeFlowType, setActiveFlowType] = useState<ActiveFlowType | null>(null);
   const flowCodeRef = useRef(1999);
   const getNextFlowCode = useCallback(() => {
     flowCodeRef.current += 1;
@@ -177,6 +214,46 @@ const Flow = () => {
     setValidation(validateFlow(nodes, edges));
   }, [nodes, edges]);
 
+  useEffect(() => {
+    setNodes((prevNodes) => {
+      let changed = false;
+      const normalized = prevNodes.map((node) => {
+        const current = (node.data as { flowType?: FlowType }).flowType;
+        const expected = getNodeFlowType(node.type);
+        if (current === expected) return node;
+        changed = true;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            flowType: expected,
+          },
+        };
+      });
+      return changed ? normalized : prevNodes;
+    });
+  }, [setNodes]);
+
+  const handleFlowTypeSelection = useCallback((selectedType: ActiveFlowType) => {
+    setActiveFlowType(selectedType);
+    setFlowForm((prev) => ({
+      ...prev,
+      type: selectedType,
+    }));
+  }, []);
+
+  const handleBackToFlowSelection = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeIds([]);
+    setCaseSelectOpen(false);
+    setCaseSelectOptions([]);
+    setPendingEdgeParams(null);
+    setFlowForm({ name: '', type: '' });
+    setValidation(validateFlow([], []));
+    setActiveFlowType(null);
+  }, [setNodes, setEdges]);
+
   const handleFlowForm = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFlowForm(prev => ({
@@ -194,6 +271,24 @@ const Flow = () => {
     const sourceNode = nodes[nodeIndex]
 
       setEdges((eds) => {        
+
+        if (sourceNode.type === 'menu') {
+          const existing = eds
+            .filter((e) => e.source === sourceNode.id)
+            .map((e) => (e.label ?? e.type ?? ''))
+            .filter((s) => !!s);
+
+          const filtered = MENU_OUTPUT_OPTIONS.filter((o) => !existing.includes(o));
+          if (filtered.length === 0) {
+            alert('No remaining menu outputs to connect for this Menu node');
+            return eds;
+          }
+
+          setCaseSelectOptions(filtered);
+          setPendingEdgeParams(params);
+          setCaseSelectOpen(true);
+          return eds;
+        }
 
         const newEdges = addEdge(params, eds)
         if(sourceNode.type === "condition"){
@@ -240,22 +335,29 @@ const Flow = () => {
     if (!pendingEdgeParams) return;
     const params = pendingEdgeParams;
     const sourceId = params.source;
+    const sourceNode = nodes.find((node) => node.id === sourceId);
     const opts = caseSelectOptions;
     const chosen = opts[selectedIdx];
     setEdges((eds) => {
-      // prevent multiple DEFAULT
-      if (chosen === 'DEFAULT') {
+      // prevent multiple DEFAULT only for Case node
+      if (sourceNode?.type === 'case' && chosen === 'DEFAULT') {
         const alreadyDefault = eds.some((e) => e.source === sourceId && (e.label === 'DEFAULT' || e.type === 'DEFAULT'));
         if (alreadyDefault) {
           alert('Default connection already exists for this Case node');
           return eds;
         }
       }
-      const newE = addEdge({ ...params, label: chosen === 'DEFAULT' ? 'DEFAULT' : chosen, type: chosen === 'DEFAULT' ? 'DEFAULT' : undefined }, eds);
+
+      const edgeToAdd =
+        sourceNode?.type === 'case'
+          ? { ...params, label: chosen === 'DEFAULT' ? 'DEFAULT' : chosen, type: chosen === 'DEFAULT' ? 'DEFAULT' : undefined }
+          : { ...params, label: chosen, type: chosen };
+
+      const newE = addEdge(edgeToAdd, eds);
       return newE;
     });
     setPendingEdgeParams(null);
-  }, [pendingEdgeParams, caseSelectOptions, setEdges]);
+  }, [pendingEdgeParams, caseSelectOptions, setEdges, nodes]);
   
   const onDragOver = useCallback((event) => {
     event.preventDefault();
@@ -307,11 +409,17 @@ const Flow = () => {
       if (!type) {
         return;
       }
+
+      if (!isNodeAllowedForFlow(type, activeFlowType)) {
+        alert(`Node type "${type}" is not available for ${activeFlowType ?? 'this'} flow.`);
+        return;
+      }
       
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       })
+      const nodeFlowType = getNodeFlowType(type);
       let newNode
 
       if(type === "condition"){
@@ -319,28 +427,49 @@ const Flow = () => {
           id: getId(),
           type,
           position,
-          data: { label: `${type} node`, thenConnection: false , elseConnection: false, condition: '>' },
+          data: { label: `${type} node`, thenConnection: false , elseConnection: false, condition: '>', flowType: nodeFlowType },
         }
       }else if(type === "queue"){
         newNode = {
           id: getId(),
           type,
           position,
-          data: { label: `${type} node`, queueID: undefined },
+          data: { label: `${type} node`, queueID: undefined, flowType: nodeFlowType },
         }
       }else if(type === 'case'){
         newNode = {
           id: getId(),
           type,
           position,
-          data: { label: `${type} node`, caseValues: [], inputVar: '', defaultAssigned: true },
+          data: { label: `${type} node`, caseValues: [], inputVar: '', defaultAssigned: true, flowType: nodeFlowType },
+        }
+      }else if(type === 'menu'){
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, flowType: nodeFlowType, maxRetries: 3, audioFile: '' },
+        }
+      }else if(type === 'transcribe'){
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, flowType: nodeFlowType, outputVariable: '', maxTimeListening: 0 },
+        }
+      }else if(type === 'talk'){
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, flowType: nodeFlowType, text: '', voiceModel: 'default' },
         }
       }else{
         newNode = {
           id: getId(),
           type,
           position,
-          data: { label: `${type} node` },
+          data: { label: `${type} node`, flowType: nodeFlowType },
         }
       }
       
@@ -350,10 +479,21 @@ const Flow = () => {
         setNodes((nds) => nds.concat(newNode));
       }
     },
-    [screenToFlowPosition, type,queues]
+    [activeFlowType, screenToFlowPosition, type,queues]
   );
 
   const generateArtifact = async () => {
+    if (!activeFlowType) {
+      alert('Selecciona el tipo de flujo (voice/chat) antes de desplegar.');
+      return;
+    }
+
+    const incompatibleNodes = nodes.filter((node) => !isNodeAllowedForFlow(node.type, activeFlowType));
+    if (incompatibleNodes.length > 0) {
+      alert('Hay nodos incompatibles con el tipo de flujo seleccionado.');
+      return;
+    }
+
     const validationResult = validateFlow(nodes, edges);
     setValidation(validationResult);
     if (!validationResult.isValid) {
@@ -371,7 +511,7 @@ const Flow = () => {
       const flowVO = {
         name:flowForm.name,
         code:getNextFlowCode(),
-        type:flowForm.type,
+        type:flowForm.type || activeFlowType,
         data
       }
       
@@ -404,7 +544,7 @@ const Flow = () => {
   }
 
   // Detecta el nodo seleccionado
-  const onNodeClick = useCallback((event, node) => {
+  const onNodeClick = useCallback((_, node) => {
     setSelectedNodeIds([node.id])
   }, []);
 
@@ -465,6 +605,21 @@ const Flow = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  if (!activeFlowType) {
+    return (
+      <div className="flow-type-selection-screen">
+        <div className="flow-type-selection-card">
+          <h2>Selecciona el tipo de flujo</h2>
+          <p>Elige qué tipo de flujo quieres construir.</p>
+          <div className="flow-type-selection-actions">
+            <button onClick={() => handleFlowTypeSelection('voice')}>Voice Flow</button>
+            <button onClick={() => handleFlowTypeSelection('chat')}>Chat Flow</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100vw', height: '100vh' }} tabIndex={0} >
       <div className="dndflow">
@@ -509,13 +664,10 @@ const Flow = () => {
             </div>
             <div>
               <label>Type:</label>
-              <input
-                type="text"
-                name="type"
-                value={flowForm.type}
-                onChange={handleFlowForm}
-              />
+              <input type="text" name="type" value={flowForm.type || activeFlowType} readOnly />
             </div>
+
+            <button onClick={handleBackToFlowSelection}>Change Flow Type</button>
 
             <button onClick={generateArtifact}>Deploy</button>
 
@@ -553,7 +705,7 @@ const Flow = () => {
             </div>}
 
         </div>
-        <Sidebar />
+        <Sidebar activeFlowType={activeFlowType} />
       </div>
     </div>
   );

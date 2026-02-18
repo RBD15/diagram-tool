@@ -83,6 +83,37 @@ export const validateFlow = (
       return true;
     });
 
+  const menuNodesOk = currentNodes
+    .filter((node) => node.type === 'menu')
+    .every((node) => {
+      const data = node.data as { audioFile?: string | null };
+      const hasAudio = typeof data.audioFile === 'string' && data.audioFile.trim().length > 0;
+      const hasInput = (incoming.get(node.id)?.length ?? 0) > 0;
+      const hasOutput = (outgoing.get(node.id)?.length ?? 0) > 0;
+      return hasAudio && hasInput && hasOutput;
+    });
+
+  const transcribeNodesOk = currentNodes
+    .filter((node) => node.type === 'transcribe')
+    .every((node) => {
+      const data = node.data as { outputVariable?: string | null; maxTimeListening?: number | null };
+      const hasOutputVariable =
+        typeof data.outputVariable === 'string' && data.outputVariable.trim().length > 0;
+      const hasMaxTimeListening =
+        typeof data.maxTimeListening === 'number' && Number.isFinite(data.maxTimeListening) && data.maxTimeListening > 0;
+      return hasOutputVariable && hasMaxTimeListening;
+    });
+
+  const talkNodesOk = currentNodes
+    .filter((node) => node.type === 'talk')
+    .every((node) => {
+      const data = node.data as { text?: string | null; voiceModel?: string | null };
+      const hasText = typeof data.text === 'string' && data.text.trim().length > 0;
+      const hasVoiceModel =
+        typeof data.voiceModel === 'string' && data.voiceModel.trim().length > 0;
+      return hasText && hasVoiceModel;
+    });
+
   const dfs = (nodeId: string, visiting: Set<string>): boolean => {
     const node = nodeById.get(nodeId);
     if (!node) return false;
@@ -146,6 +177,21 @@ export const validateFlow = (
       id: 'case-node',
       label: 'CaseNode debe tener la conexión por defecto (DEFAULT)',
       passed: caseNodesOk,
+    },
+    {
+      id: 'menu-node',
+      label: 'MenuNode debe tener audio seleccionado y al menos una entrada/salida conectada',
+      passed: menuNodesOk,
+    },
+    {
+      id: 'transcribe-node',
+      label: 'TranscribeNode debe tener output variable y maxTimeListening configurados',
+      passed: transcribeNodesOk,
+    },
+    {
+      id: 'talk-node',
+      label: 'TalkNode debe tener texto y voice model configurados',
+      passed: talkNodesOk,
     },
   ];
 
